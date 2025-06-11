@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Dashboard Preferences{% endblock %}
+
+{% block extra_css %}
+<style>
+    .widget-card {
+        cursor: move;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .widget-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .widget-card.dragging {
+        opacity: 0.5;
+    }
+    .widget-preview {
+        height: 120px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .layout-option {
+        cursor: pointer;
+        padding: 1rem;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    .layout-option.selected {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    .layout-preview {
+        height: 100px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <!-- Widget Management -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h4 mb-4">Manage Widgets</h2>
+                    
+                    <div id="widgetList" class="row">
+                        {% for widget_setting in object.userwidgetsettings_set.all %}
+                        <div class="col-12 col-md-6 mb-4" data-widget-id="{{ widget_setting.widget.id }}">
+                            <div class="card widget-card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="card-title mb-0">{{ widget_setting.widget.name }}</h5>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input widget-visibility-toggle" 
+                                                   type="checkbox" 
+                                                   id="widget{{ widget_setting.widget.id }}"
+                                                   {% if widget_setting.is_visible %}checked{% endif %}
+                                                   data-widget-id="{{ widget_setting.widget.id }}">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="widget-preview mb-3">
+                                        <i class="fas fa-grip-vertical text-muted"></i>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-secondary">
+                                            {{ widget_setting.widget.get_widget_type_display }}
+                                        </span>
+                                        <small class="text-muted">
+                                            Refreshes every {{ widget_setting.widget.get_refresh_rate_display }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                No widgets available. 
+                                <a href="{% url 'dashboard:widget-create' %}">Add some widgets</a> 
+                                to customize your dashboard.
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <!-- Layout Preferences -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h4 mb-4">Layout Preferences</h2>
+                    
+                    <form method="post" id="preferencesForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label class="form-label">Choose Layout</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="layout-option {% if object.layout == 'GRID' %}selected{% endif %}" 
+                                         data-layout="GRID">
+                                        <div class="layout-preview">
+                                            <!-- Grid layout preview -->
+                                        </div>
+                                        <div class="text-center">Grid</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="layout-option {% if object.layout == 'LIST' %}selected{% endif %}" 
+                                         data-layout="LIST">
+                                        <div class="layout-preview">
+                                            <!-- List layout preview -->
+                                        </div>
+                                        <div class="text-center">List</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{ form|crispy }}
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                Save Preferences
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Tips -->
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h4 mb-3">Tips</h2>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="fas fa-arrows-alt text-muted me-2"></i>
+                            Drag widgets to reorder them
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-toggle-on text-muted me-2"></i>
+                            Toggle switches to show/hide widgets
+                        </li>
+                        <li>
+                            <i class="fas fa-th-large text-muted me-2"></i>
+                            Choose between grid or list layout
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize drag and drop for widgets
+        new Sortable(document.getElementById('widgetList'), {
+            animation: 150,
+            ghostClass: 'dragging',
+            onEnd: function(evt) {
+                const widgetIds = Array.from(evt.to.children).map(
+                    el => el.dataset.widgetId
+                );
+                
+                // Update widget positions via API
+                fetch('{% url "dashboard:update-widget-position" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ positions: widgetIds })
+                });
+            }
+        });
+
+        // Handle widget visibility toggles
+        document.querySelectorAll('.widget-visibility-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const widgetId = this.dataset.widgetId;
+                
+                fetch('{% url "dashboard:toggle-widget-visibility" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ 
+                        widget_id: widgetId,
+                        visible: this.checked 
+                    })
+                });
+            });
+        });
+
+        // Handle layout selection
+        document.querySelectorAll('.layout-option').forEach(option => {
+            option.addEventListener('click', function() {
+                // Update visual selection
+                document.querySelectorAll('.layout-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                this.classList.add('selected');
+                
+                // Update hidden input
+                document.getElementById('id_layout').value = this.dataset.layout;
+            });
+        });
+    });
+</script>
+{% endblock %}
