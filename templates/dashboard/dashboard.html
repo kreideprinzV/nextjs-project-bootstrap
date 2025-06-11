@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Restaurant Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+    }
+    .metric-card {
+        border-left: 4px solid #4CAF50;
+    }
+    .chart-container {
+        height: 300px;
+        width: 100%;
+    }
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    .status-active { background-color: #4CAF50; }
+    .status-warning { background-color: #FFC107; }
+    .status-danger { background-color: #DC3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-0 text-gray-800">Welcome, {{ request.user.get_full_name|default:request.user.username }}</h1>
+            <p class="text-muted">Here's what's happening in your restaurant today</p>
+        </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="row mb-4">
+        {% if metrics %}
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="dashboard-card metric-card h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Today's Sales</h6>
+                        <h2 class="mb-0">${{ metrics.total_sales|floatformat:2 }}</h2>
+                    </div>
+                    <div class="text-success">
+                        <i class="fas fa-dollar-sign fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="dashboard-card metric-card h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Orders Today</h6>
+                        <h2 class="mb-0">{{ metrics.total_orders }}</h2>
+                    </div>
+                    <div class="text-primary">
+                        <i class="fas fa-shopping-cart fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="dashboard-card metric-card h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Staff on Duty</h6>
+                        <h2 class="mb-0">{{ metrics.staff_on_duty }}</h2>
+                    </div>
+                    <div class="text-info">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="dashboard-card metric-card h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Low Stock Items</h6>
+                        <h2 class="mb-0">{{ metrics.low_stock_items }}</h2>
+                    </div>
+                    <div class="text-warning">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent Orders and Inventory Alerts -->
+    <div class="row mb-4">
+        <!-- Recent Orders -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="dashboard-card h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">Recent Orders</h5>
+                    <a href="{% url 'orders:order-list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th>Total</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td>{{ order.order_number }}</td>
+                                <td>{{ order.customer_name }}</td>
+                                <td>
+                                    <span class="badge {% if order.status == 'COMPLETED' %}bg-success{% elif order.status == 'PENDING' %}bg-warning{% else %}bg-info{% endif %}">
+                                        {{ order.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>${{ order.total|floatformat:2 }}</td>
+                                <td>{{ order.created_at|time:"H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">No recent orders</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Alerts -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="dashboard-card h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">Inventory Alerts</h5>
+                    <a href="{% url 'inventory:low-stock' %}" class="btn btn-sm btn-outline-warning">View All</a>
+                </div>
+                <div class="list-group">
+                    {% for item in low_stock_items %}
+                    <div class="list-group-item border-0 d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ item.name }}</h6>
+                            <small class="text-muted">Current: {{ item.quantity }} {{ item.unit }}</small>
+                        </div>
+                        <span class="badge bg-danger">Low Stock</span>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted">
+                        <p>No low stock items</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff and Sales Chart -->
+    <div class="row">
+        <!-- Active Staff -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="dashboard-card h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">Active Staff</h5>
+                    <a href="{% url 'staff:staff-list' %}" class="btn btn-sm btn-outline-info">View All</a>
+                </div>
+                <div class="list-group">
+                    {% for staff in active_staff %}
+                    <div class="list-group-item border-0">
+                        <div class="d-flex align-items-center">
+                            <div class="status-indicator status-active"></div>
+                            <div>
+                                <h6 class="mb-1">{{ staff.user.get_full_name }}</h6>
+                                <small class="text-muted">{{ staff.position }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted">
+                        <p>No active staff members</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sales Chart -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="dashboard-card h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">Today's Sales</h5>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="updateChart('daily')">Daily</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="updateChart('weekly')">Weekly</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="updateChart('monthly')">Monthly</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize sales chart
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    let salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Sales',
+                data: [],
+                borderColor: '#4CAF50',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Function to update chart data
+    function updateChart(timeframe) {
+        fetch(`/dashboard/api/sales-chart-data/?timeframe=${timeframe}`)
+            .then(response => response.json())
+            .then(data => {
+                salesChart.data.labels = data.labels;
+                salesChart.data.datasets[0].data = data.values;
+                salesChart.update();
+            });
+    }
+
+    // Initial chart load
+    updateChart('daily');
+
+    // Refresh dashboard data periodically
+    setInterval(() => {
+        location.reload();
+    }, 300000); // Refresh every 5 minutes
+</script>
+{% endblock %}
