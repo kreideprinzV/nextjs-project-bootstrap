@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        Edit Widget - {{ form.instance.name }}
+    {% else %}
+        Create New Widget
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="h3 mb-4 text-center">
+                        {% if form.instance.pk %}
+                            Edit Widget
+                        {% else %}
+                            Create New Widget
+                        {% endif %}
+                    </h1>
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            {{ form.name|as_crispy_field }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.widget_type|as_crispy_field }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.refresh_rate|as_crispy_field }}
+                        </div>
+
+                        {% if form.instance.pk %}
+                        <div class="mb-3">
+                            {{ form.is_active|as_crispy_field }}
+                        </div>
+                        {% endif %}
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'dashboard:widget-list' %}" class="btn btn-outline-secondary me-md-2">
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if form.instance.pk %}
+                                    Update Widget
+                                {% else %}
+                                    Create Widget
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Dynamic form behavior based on widget type
+    document.addEventListener('DOMContentLoaded', function() {
+        const widgetTypeSelect = document.getElementById('id_widget_type');
+        const refreshRateField = document.getElementById('div_id_refresh_rate');
+
+        function updateRefreshRateVisibility() {
+            // Show/hide refresh rate based on widget type
+            const selectedType = widgetTypeSelect.value;
+            if (selectedType === 'STATIC') {
+                refreshRateField.style.display = 'none';
+            } else {
+                refreshRateField.style.display = 'block';
+            }
+        }
+
+        // Initial check
+        updateRefreshRateVisibility();
+
+        // Listen for changes
+        widgetTypeSelect.addEventListener('change', updateRefreshRateVisibility);
+    });
+</script>
+{% endblock %}
